@@ -152,12 +152,23 @@ public class InjectionUtilsTest extends Assert {
     @Test
     public void testGenericInterfaceType() throws NoSuchMethodException {
         Type str = InjectionUtils.getGenericResponseType(GenericInterface.class.getMethod("get"),
-                       TestService.class, "", String.class, new ExchangeImpl());
+            TestService.class, "", String.class, new ExchangeImpl());
         assertEquals(String.class, str);
         ParameterizedType list = (ParameterizedType) InjectionUtils.getGenericResponseType(
             GenericInterface.class.getMethod("list"), TestService.class,
             new ArrayList<String>(), ArrayList.class, new ExchangeImpl());
         assertEquals(String.class, list.getActualTypeArguments()[0]);
+    }
+
+    @Test
+    public void testComplexGenericInterfaceType() throws NoSuchMethodException {
+        Type str = InjectionUtils.getGenericResponseType(DocumentResource.class.getMethod("findIdAssociations", Object.class),
+            TestDocumentResource.class, new HashSet<>(), HashSet.class, new ExchangeImpl());
+        assertEquals(Association.class, str);
+
+        ParameterizedType list = (ParameterizedType) InjectionUtils.getGenericResponseType(DocumentResource.class
+            .getMethod("findDocumentAssociations", Document.class), TestDocumentResource.class, new HashSet<Long>(), HashSet.class, new ExchangeImpl());
+        assertEquals(Association.class, list.getActualTypeArguments()[0]);
     }
     
     static class CustomerBean1 {
@@ -323,6 +334,7 @@ public class InjectionUtilsTest extends Assert {
         A get();
         List<A> list();
     }
+
     interface ServiceInterface extends Serializable, GenericInterface<String> {
     }
     public static class TestService implements Serializable, ServiceInterface {
@@ -336,4 +348,37 @@ public class InjectionUtilsTest extends Assert {
             return new ArrayList<>();
         }
     }
+
+    // A mix of more complex generic structures which might be used for resource parameters
+
+    interface Document<ID> {}
+    interface Association<ID, D> {}
+
+    static class SimpleDocument implements Document<String> {}
+    static class SimpleAssociation implements Association<String, SimpleDocument> {}
+
+    interface DocumentResource<ID, D extends Document<ID>, A extends Association<ID, D>> {
+        Set<A> findIdAssociations(ID id);
+        Set<A> findDocumentAssociations(D id);
+        ID extractIdentifier(D doc);
+    }
+
+    static class TestDocumentResource implements DocumentResource<String, SimpleDocument, Association<String, SimpleDocument>> {
+
+        @Override
+        public Set<Association<String, SimpleDocument>> findIdAssociations(String s) {
+            return new HashSet<>();
+        }
+
+        @Override
+        public Set<Association<String, SimpleDocument>> findDocumentAssociations(SimpleDocument id) {
+            return new HashSet<>();
+        }
+
+        @Override
+        public String extractIdentifier(SimpleDocument doc) {
+            return "";
+        }
+    }
+
 }
